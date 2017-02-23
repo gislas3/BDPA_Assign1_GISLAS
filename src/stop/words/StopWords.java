@@ -35,8 +35,8 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-//import org.apache.hadoop.io.compress.BZip2Codec;
-//import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.io.compress.BZip2Codec;
+import org.apache.hadoop.io.compress.CompressionCodec;
 //import org.apache.hadoop.io.compress.GzipCodec;
 //import org.apache.hadoop.io.compress.Lz4Codec;
 //import org.apache.hadoop.io.compress.SnappyCodec;
@@ -54,33 +54,20 @@ import org.apache.hadoop.util.ToolRunner;
 
 
 public class StopWords extends Configured implements Tool {
-	//private static int distinct_words = 0;
    public static void main(String[] args) throws Exception {
-      //System.out.println(Arrays.toString(args));
       int res = ToolRunner.run(new Configuration(), new StopWords(), args);
       
      
-      //System.out.println(distinct_words);
       System.exit(res);
    }
 
    @Override
    public int run(String[] args) throws Exception {
-      //System.out.println(Arrays.toString(args));
 	  
-	  // getConf().setBoolean(Job.MAP_OUTPUT_COMPRESS, true); 
+	//   getConf().setBoolean(Job.MAP_OUTPUT_COMPRESS, true); 
 	  // getConf().setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, BZip2Codec.class,
-	    //			  CompressionCodec.class);
-//	   getConf().setBoolean("mapred.compress.map.output", true);
-	//   getConf().set("mapred.map.output.compression.codec",
-//"org.apache.hadoop.io.compress.BZip2Codec");
+	    //			  CompressionCodec.class); //for setting the compression to true
       Job myjob = Job.getInstance(getConf());
-     // myjob.getConfiguration().setBoolean(Job.MAP_OUTPUT_COMPRESS, true); 
-	 // myjob.getConfiguration().setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class,
-		//	  CompressionCodec.class); // for setting the compression for the configuration
-	 // getConf().setBoolean(Job.MAP_OUTPUT_COMPRESS, true);
-	 // getConf().setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class,
-		//	  CompressionCodec.class);
 	  
       
       myjob.setJarByClass(StopWords.class);
@@ -88,31 +75,31 @@ public class StopWords extends Configured implements Tool {
       myjob.setOutputValueClass(IntWritable.class);
 
       myjob.setMapperClass(Map.class);
-      myjob.setCombinerClass(Reduce.class); //for setting combiner class
-      myjob.setNumReduceTasks(10); //my addition
+      myjob.setCombinerClass(Reduce.class); //for setting combiner class (same as reducer)
+      myjob.setNumReduceTasks(50); //my addition
       myjob.setReducerClass(Reduce.class);
       
       myjob.setInputFormatClass(TextInputFormat.class);
       
       myjob.setOutputFormatClass(TextOutputFormat.class);
 
-      FileInputFormat.addInputPath(myjob, new Path(args[0]));
-      FileOutputFormat.setOutputPath(myjob, new Path(args[1]));
+      FileInputFormat.addInputPath(myjob, new Path(args[0])); //user sets input path
+      FileOutputFormat.setOutputPath(myjob, new Path(args[1])); //user sets output path
      
       //FileOutputFormat.
       myjob.waitForCompletion(true);
      
-     //
+     //for writing the stopwords file to the hdfs
      FileSystem fs = FileSystem.get(getConf());  
-     RemoteIterator<LocatedFileStatus> direc = fs.listFiles(new Path(args[1]), false);
+     RemoteIterator<LocatedFileStatus> direc = fs.listFiles(new Path(args[1]), false); //open the output directory with the reducers' output
    
      
-     String output_path = "stopwords.csv";
+     String output_path = "stopwords.csv"; //name the file
      FSDataOutputStream out = fs.create(new Path(output_path));
      while(direc.hasNext()) {
      Path temp_path = direc.next().getPath();
      
-     if(temp_path.toString().contains("part")) {
+     if(temp_path.toString().contains("part")) { // only open the file if it is a reducer output
      
      BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(temp_path)));
      try {
@@ -129,7 +116,7 @@ public class StopWords extends Configured implements Tool {
     	  }
     	} finally {
     	  
-    	  br.close();
+    	  br.close(); // lcose the file
     	}
      }
      
@@ -194,12 +181,11 @@ public class StopWords extends Configured implements Tool {
               throws IOException, InterruptedException {
          int sum = 0;
          for (IntWritable val : values) {
-            sum += val.get();
+            sum += val.get(); //sum up the count
          }
          if(sum >= 4000) {
-        	 context.write(key, new IntWritable(sum));
+        	 context.write(key, new IntWritable(sum)); //only write the word to the context if it is a stopword as defined
          }
-        	 //distinct_words += 1;
       }
    }
 }

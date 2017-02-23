@@ -21,7 +21,6 @@ import org.apache.hadoop.mapreduce.Counters;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-//import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
@@ -31,92 +30,57 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
 public class DocWordCount extends Configured implements Tool{
-	//private static int distinct_words = 0;
-	//protected static LinkedList<String> stopwords = new LinkedList<String>();
+
  public static void main(String[] args) throws Exception {
-    //System.out.println(Arrays.toString(args));
     int res = ToolRunner.run(new Configuration(), new DocWordCount(), args);
     
    
-    //System.out.println(distinct_words);
     System.exit(res);
  }
 
  @Override
  public int run(String[] args) throws Exception {
-    //System.out.println(Arrays.toString(args));
-	   //Configuration conf = new Configuration();
-	 //  getConf().setBoolean(Job.MAP_OUTPUT_COMPRESS, true); 
-	   //getConf().setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class,
-		//	  CompressionCodec.class); // for setting the compression for the configuration
-	 
-    Job myjob = Job.getInstance(getConf());
-    
-   /* FileSystem fs = FileSystem.get(getConf());  
-  
-    String sw = fs.getHomeDirectory().toString() + "/stopwords.csv";
-    LinkedList<String> stopwords = new LinkedList<String>();
-   try{
-    
-    BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(sw))));
-    try {
-   	  String line;
-   	  
-   	  line=br.readLine();
-   	
-   	  while (line != null){
-   		//System.out.println(line);
-   		 String[] linesplit = line.split("\\s+");
-   	     System.out.println(linesplit[0].substring(0, linesplit[0].length() -1));
-		 stopwords.add(linesplit[0].substring(0, linesplit[0].length() -1));
-		//System.out.println(linesplit[0]);
-		 
-		 line = br.readLine();
-   	  }
-   	} finally {
-   	  
-   	  br.close();
-   	}
-    }catch(IOException e) {
-    	System.out.println(e.toString());
-    }
-    */
-    
-    myjob.setJarByClass(DocWordCount.class);
-    myjob.setOutputKeyClass(Text.class);
-    myjob.setOutputValueClass(Text.class);
 
-    myjob.setMapperClass(Map.class);
+    Job myjob = Job.getInstance(getConf()); //initialize the job
+    
+
+    
+    myjob.setJarByClass(DocWordCount.class); //set the jar class to this class
+    myjob.setOutputKeyClass(Text.class); //output key will be a text
+    myjob.setOutputValueClass(Text.class); //output value will be a text
+
+    myjob.setMapperClass(Map.class); //set the mapper class to this mapper class
     //myjob.setCombinerClass(Combine.class); //for setting combiner class
-    myjob.setNumReduceTasks(1); //my addition
-    myjob.setReducerClass(Reduce.class);
+    myjob.setNumReduceTasks(1); //use 1 reducer
+    myjob.setReducerClass(Reduce.class); //set the reducer class
     
-    myjob.setInputFormatClass(TextInputFormat.class);
+    myjob.setInputFormatClass(TextInputFormat.class); //text input since reading from file
     
-    myjob.setOutputFormatClass(TextOutputFormat.class);
+    myjob.setOutputFormatClass(TextOutputFormat.class); //text output since writing to file
 
-    FileInputFormat.addInputPath(myjob, new Path(args[0]));
-    FileOutputFormat.setOutputPath(myjob, new Path(args[1]));
+    FileInputFormat.addInputPath(myjob, new Path(args[0])); //user sets the input path
+    FileOutputFormat.setOutputPath(myjob, new Path(args[1])); // user sets the output path
    
     //FileOutputFormat.
     myjob.waitForCompletion(true);
    
     
+    
     FileSystem fs = FileSystem.get(getConf());  
   
     
-    String output_path = "uniquewords.txt";
-    FSDataOutputStream out = fs.create(new Path(output_path));
+    String output_path = "uniquewords.txt"; 
+    FSDataOutputStream out = fs.create(new Path(output_path));//will create a new file in the home directory called uniqewords.txt
     
-    Counters counters = myjob.getCounters();
+    Counters counters = myjob.getCounters(); //loop through the counters
     for(CounterGroup c : counters) {
     	String output = "";
     	for(Counter c2 : c) {
     		
-    		if(c2.getName().contains("total_words") ) {
+    		if(c2.getName().contains("total_words") ) { //the counter defined in the class
     			output = c.getName() + "\tTotal: " + c2.getValue();
     		}
-    		else if (c2.getName().contains("unique_words")) {
+    		else if (c2.getName().contains("unique_words")) { //the other counter defined in the class
     			output = output + "\tUnique: " + c2.getValue() + "\n";
     			out.writeBytes(output);//(output);
     		}
@@ -129,7 +93,6 @@ public class DocWordCount extends Configured implements Tool{
  }
  
  public static class Map extends Mapper<LongWritable, Text, Text, Text> {
-    //private final static IntWritable ONE = new IntWritable(1);
     private Text word = new Text();
     
     private Text docname = new Text();
@@ -141,7 +104,7 @@ public class DocWordCount extends Configured implements Tool{
     protected void setup(Context context) throws IOException, InterruptedException {
     	 FileSystem fs = FileSystem.get(context.getConfiguration());  
     	 swords = new LinkedList<String>(); 
-    	    String sw = fs.getHomeDirectory().toString() + "/stopwords.csv";
+    	    String sw = fs.getHomeDirectory().toString() + "/stopwords.csv"; //assumes stopwords is in the home directory
     	   // System.out.println("Path in Mapper class is: " + sw);
     	   try{
     	    
@@ -154,9 +117,6 @@ public class DocWordCount extends Configured implements Tool{
     	   	  while (line != null){
     	   		//System.out.println(line);
     	   		 String[] linesplit = line.split(",");
-    	   	     //System.out.println(linesplit[0].substring(0, linesplit[0].length() -1));
-    			 //swords.add(linesplit[0].substring(0, linesplit[0].length() -1));
-    	   		 //System.out.println(linesplit[0]);
     	   		 swords.add(linesplit[0]);
     			//System.out.println(linesplit[0]);
     			 
@@ -217,8 +177,8 @@ public class DocWordCount extends Configured implements Tool{
           	word.set(token);
           	String fileName = ((FileSplit) context.getInputSplit()).getPath().getName();
           	docname.set(fileName);
-          	context.write(word, docname);
-          	context.getCounter(fileName, fileName + "total_words").increment(1); 
+          	context.write(word, docname); //the key is 
+          	context.getCounter(fileName, fileName + "total_words").increment(1); //increment the counter for this file and total words
           }
           
           
@@ -244,30 +204,11 @@ public class DocWordCount extends Configured implements Tool{
     	  if(!filenames.contains(t.toString())) {
     		  totfiles = totfiles + t.toString() + ", ";
     		  filenames.add(t.toString());
-    		  context.getCounter(t.toString(), t.toString() + "unique_words").increment(1);
+    		  context.getCounter(t.toString(), t.toString() + "unique_words").increment(1); //increment the unique words counter for the file name
     	  }
-          //System.out.println("t is: " + t.toString() );
-          //x++;
        }
-       //System.out.println();
-       //System.out.println();
-       /*
-     //  if(x > 1) {
-    	//   System.out.println("key is " + key.toString());
-    	  // System.out.print("values are: ");
-    	   //for(Text k: values) {
-    		//   System.out.print(k.toString() + ", ");
-    	//   }
-    	   
-    	  // System.out.println("filenames are: " +filenames.toString());
-       //}
-         */
-        
-       
-       
        totfiles = totfiles.substring(0, totfiles.length()-2);
        context.write(key, new Text(totfiles));
-      	 //distinct_words += 1;
     }
  }
 }

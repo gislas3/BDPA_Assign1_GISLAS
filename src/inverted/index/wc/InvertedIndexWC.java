@@ -61,43 +61,10 @@ public class InvertedIndexWC extends Configured implements Tool {
 
  @Override
  public int run(String[] args) throws Exception {
-    //System.out.println(Arrays.toString(args));
-	   //Configuration conf = new Configuration();
-	 //  getConf().setBoolean(Job.MAP_OUTPUT_COMPRESS, true); 
-	   //getConf().setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class,
-		//	  CompressionCodec.class); // for setting the compression for the configuration
 	 
     Job myjob = Job.getInstance(getConf());
     
-   /* FileSystem fs = FileSystem.get(getConf());  
-  
-    String sw = fs.getHomeDirectory().toString() + "/stopwords.csv";
-    LinkedList<String> stopwords = new LinkedList<String>();
-   try{
-    
-    BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(sw))));
-    try {
-   	  String line;
-   	  
-   	  line=br.readLine();
-   	
-   	  while (line != null){
-   		//System.out.println(line);
-   		 String[] linesplit = line.split("\\s+");
-   	     System.out.println(linesplit[0].substring(0, linesplit[0].length() -1));
-		 stopwords.add(linesplit[0].substring(0, linesplit[0].length() -1));
-		//System.out.println(linesplit[0]);
-		 
-		 line = br.readLine();
-   	  }
-   	} finally {
-   	  
-   	  br.close();
-   	}
-    }catch(IOException e) {
-    	System.out.println(e.toString());
-    }
-    */
+
     
     myjob.setJarByClass(InvertedIndexWC.class);
     myjob.setOutputKeyClass(Text.class);
@@ -279,9 +246,9 @@ public class InvertedIndexWC extends Configured implements Tool {
        for (Text t: values) {
     	  String[] line = t.toString().split("\\s+|,");
     	  for(int i = 0; i < line.length; i++) {
-    		  String word = line[i].substring(0, line[i].lastIndexOf('#'));
-    		  Integer count =  Integer.valueOf(line[i].substring(line[i].lastIndexOf('#')+1, line[i].length()));
-    		  if(!filenames.contains(word)) {
+    		  String word = line[i].substring(0, line[i].lastIndexOf('#')); //get the filename
+    		  Integer count =  Integer.valueOf(line[i].substring(line[i].lastIndexOf('#')+1, line[i].length())); //get the count, value from # to end of value
+    		  if(!filenames.contains(word)) { //first time seeing the file name
     			  filenames.add(word);
     			  namecount.add(count);
     		  }
@@ -291,21 +258,8 @@ public class InvertedIndexWC extends Configured implements Tool {
     		  }
     	  }
           //System.out.println("t is: " + t.toString() );
-          //x++;
        }
-       //System.out.println();
-       //System.out.println();
-       /*
-     //  if(x > 1) {
-    	//   System.out.println("key is " + key.toString());
-    	  // System.out.print("values are: ");
-    	   //for(Text k: values) {
-    		//   System.out.print(k.toString() + ", ");
-    	//   }
-    	   
-    	  // System.out.println("filenames are: " +filenames.toString());
-       //}
-         */
+    
         
        String totfiles = "";
        for(int i =0; i < filenames.size(); i++) {

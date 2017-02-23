@@ -3,28 +3,19 @@ package relative.frequencies;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.text.DecimalFormat;
-import java.util.HashMap;
 import java.util.LinkedList;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.io.DoubleWritable;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-//import org.apache.hadoop.mapreduce.Mapper.Context;
-//import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-//import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
@@ -37,7 +28,7 @@ public class RelativeFrequencyPairs extends Configured implements Tool {
 	//private static int distinct_words = 0;
 	   public static void main(String[] args) throws Exception {
 	      //System.out.println(Arrays.toString(args));
-	      int res = ToolRunner.run(new Configuration(), new RelativeFrequencyPairs(), args);
+	      int res = ToolRunner.run(new Configuration(), new RelativeFrequencyPairs(), args); 
 	      
 	     
 	      //System.out.println(distinct_words);
@@ -46,105 +37,66 @@ public class RelativeFrequencyPairs extends Configured implements Tool {
 
 	   @Override
 	   public int run(String[] args) throws Exception {
-	      //System.out.println(Arrays.toString(args));
-		   //Configuration conf = new Configuration();
-		   //conf.setBoolean(Job.MAP_OUTPUT_COMPRESS, true); 
-		   //conf.setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class,
-			//	  CompressionCodec.class); // for setting the compression for the configuration
-	      Job myjob = Job.getInstance(getConf());
-	      myjob.setJarByClass(RelativeFrequencyPairs.class);
-	      myjob.setOutputKeyClass(Text.class);
-	      //myjob.setOutputValueClass(Text.class); //for stripes approach
-	      myjob.setOutputValueClass(DoubleWritable.class);
 	      
-	     // myjob.setMapperClass(MapStripes.class); //for stripes approach
-	      myjob.setMapperClass(MapPairs.class);
-	      //myjob.setCombinerClass(ReduceStripes.class); //for setting combiner class
-	      myjob.setNumReduceTasks(1); //my addition
-	      //myjob.setReducerClass(ReduceStripes.class); //for stripes approach
-	      myjob.setReducerClass(ReducePairs.class);
-	      myjob.setInputFormatClass(TextInputFormat.class);
+	      Job myjob = Job.getInstance(getConf()); // initialize the job
+	      myjob.setJarByClass(RelativeFrequencyPairs.class); //set the Jar to this class
+	      myjob.setOutputKeyClass(Text.class); // word will be the key, so key class should be a text
+	      myjob.setOutputValueClass(DoubleWritable.class); // pair approach, so output a double as the value
 	      
-	      myjob.setOutputFormatClass(TextOutputFormat.class);
+	      myjob.setMapperClass(MapPairs.class); // Map class is MapPairs.class
+	      myjob.setNumReduceTasks(1); //use only one reducer since want sorted output and only want 100 output
+	      myjob.setCombinerClass(CombinePairs.class);
+	      myjob.setReducerClass(ReducePairs.class); // set the reducer class to ReducePairs
+	      myjob.setInputFormatClass(TextInputFormat.class); //Text input format, reading in files
+	      
+	      myjob.setOutputFormatClass(TextOutputFormat.class); //writing out text, writing out files
 
-	      FileInputFormat.addInputPath(myjob, new Path(args[0]));
-	      FileOutputFormat.setOutputPath(myjob, new Path(args[1]));
+	      FileInputFormat.addInputPath(myjob, new Path(args[0])); // user specified input path
+	      FileOutputFormat.setOutputPath(myjob, new Path(args[1])); // user specified output path
 	     
-	      //FileOutputFormat.
-	      myjob.waitForCompletion(true);
-	     
-	     //
-	     FileSystem fs = FileSystem.get(getConf());  
-	     RemoteIterator<LocatedFileStatus> direc = fs.listFiles(new Path(args[1]), false);
+	      myjob.waitForCompletion(true); 
+
 	   
 	     
-	     String output_path = "stopwords.csv";
-	     FSDataOutputStream out = fs.create(new Path(output_path));
-	     while(direc.hasNext()) {
-	     Path temp_path = direc.next().getPath();
 	     
-	     if(temp_path.toString().contains("part")) {
-	     
-	     BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(temp_path)));
-	     try {
-	    	  String line;
-	    	  line=br.readLine();
-	    	  while (line != null){
-	    		 String[] linesplit = line.split("\\s+");
-			     String output  = linesplit[0] + ", " + linesplit[1] + "\n";
-			     
-	    	     out.writeBytes(output);//(output);
-
-	    	    
-	    	    line = br.readLine();
-	    	  }
-	    	} finally {
-	    	  
-	    	  br.close();
-	    	}
-	     }
-	     
-	     }
-	     out.close();
 	      return 0;
 	   }
 	   
 	
-	   
+	   /*
+	    * Map pairs outputs a key value pairing of two words separated by a tab, and one (word1\tword2, 1)
+	    */
 	   
 	   public static class MapPairs extends Mapper<LongWritable, Text, Text, DoubleWritable> {
-		   private final static DoubleWritable ONE = new DoubleWritable(1);
-		    private LinkedList<String> swords;
+		   private final static DoubleWritable ONE = new DoubleWritable(1); // what will be written out as the value
+		    private LinkedList<String> swords; //will store the stop words
 		    
 		 
-		    @Override
+		    @Override //call setup in order to read in the stopwords
 		    protected void setup(Context context) throws IOException, InterruptedException {
 		    	 FileSystem fs = FileSystem.get(context.getConfiguration());  
-		    	 swords = new LinkedList<String>(); 
-		    	    String sw = fs.getHomeDirectory().toString() + "/stopwords.csv";
+		    	 swords = new LinkedList<String>(); //initialize swords (stores the stopwords)
+		    	    String sw = fs.getHomeDirectory().toString() + "/stopwords.csv"; // assumes a file named stopwords.csv exists in the home directory
 		    	   // System.out.println("Path in Mapper class is: " + sw);
 		    	   try{
 		    	    
-		    	    BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(sw))));
+		    	    BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(sw)))); // will be used for reading in stopwords
 		    	    try {
 		    	   	  String line;
 		    	   	  
 		    	   	  line=br.readLine();
 		    	   	
 		    	   	  while (line != null){
-		    	   		//System.out.println(line);
-		    	   		 String[] linesplit = line.split(",");
-		    	   	     //System.out.println(linesplit[0].substring(0, linesplit[0].length() -1));
-		    			 //swords.add(linesplit[0].substring(0, linesplit[0].length() -1));
-		    	   		 //System.out.println(linesplit[0]);
-		    	   		 swords.add(linesplit[0]);
-		    			//System.out.println(linesplit[0]);
+		    	   		 String[] linesplit = line.split(","); //split along the commas
+		    	   	    
+		    	   		 swords.add(linesplit[0]); //just add the first part, not the count
+		    			//System.out.println(linesplit[0]); ..for debugging
 		    			 
-		    			 line = br.readLine();
+		    			 line = br.readLine(); //read the line
 		    	   	  }
 		    	   	} finally {
 		    	   	  
-		    	   	  br.close();
+		    	   	  br.close(); //close the file
 		    	   	}
 		    	    }catch(IOException e) {
 		    	    	System.out.println(e.toString());
@@ -156,28 +108,28 @@ public class RelativeFrequencyPairs extends Configured implements Tool {
 		    public void map(LongWritable key, Text value, Context context)
 		            throws IOException, InterruptedException {
 		  	  
-		    	LinkedList<String> linewords = new LinkedList<String>();
-		       for (String token: value.toString().split("\\s+|--")) {
-		          token = token.toLowerCase();
-		          int end_index = token.length();
-		          int i = 0;
+		    	LinkedList<String> linewords = new LinkedList<String>(); //will store the words in a line
+		       for (String token: value.toString().split("\\s+|--")) { //split the string along spaces and "--"
+		          token = token.toLowerCase(); // turn the string to lowe case
+		          int end_index = token.length(); // keep track of the last index of the string
+		          int i = 0; // start index
 		          //System.out.println("Token prior to processing is: " + token);
-		          while(i < end_index) {
+		          while(i < end_index) { //loop through the string
 		          	//
 		          	Character c = token.charAt(i);
 		          	
 		          	if(!Character.isLetterOrDigit(c)) { // not a letter or number
-		          		if(i == 0) { //first character in string
+		          		if(i == 0) { //if first character of string not a letter or number, remove it
 		          			//if(c != '\'' || token.charAt(token.length()-1) == '\'') { //first letter is apostrophe, but not being used as quote (for Mark Twain's slang)
-		          			token = token.substring(1, token.length());
+		          			token = token.substring(1, token.length()); 
 		          			i--;
 		          			//}
 		          		}
-		          		else if (i == token.length() -1 ) {
+		          		else if (i == token.length() -1 ) { //if non alphanumeric character at end of string, remove it
 		          			token = token.substring(0, token.length()-1);
 		          		}
 		          		else {
-		          			if(c != '-' && c != '\'') {
+		          			if(c != '-' && c != '\'') { //if non alphanumeric character in middle of string, leave it if it is a hyphen or apostrophe
 		          				token = token.substring(0, i) + token.substring(i+1, token.length());
 		          				i--;
 		          			}	
@@ -188,12 +140,12 @@ public class RelativeFrequencyPairs extends Configured implements Tool {
 		          	end_index = token.length();
 		          }
 		          
-		          if(swords == null) {
+		          if(swords == null) { //should not reach here if csv file exists
 		        	  System.out.println("Stop words is empty!");
 		        	  System.exit(1);
 		          }
 		          //System.out.println("Token after processing is: " + token);
-		          if(!token.isEmpty() && !swords.contains(token)) {
+		          if(!token.isEmpty() && !swords.contains(token)) { //check to make sure token wasn't all nonalphanumeric characters or empty
 		          	linewords.add(token);
 		          	
 		          }
@@ -202,62 +154,67 @@ public class RelativeFrequencyPairs extends Configured implements Tool {
 		       for(int i = 0; i < linewords.size(); i++) {
 		    	   
 		    	   //wordkey.set(linewords.get(i));
-		    	   String key1 = linewords.get(i);
+		    	   String key1 = linewords.get(i); //first half of the key
+		    	   double count = 0;
 		    	   for(int j = 0; j < linewords.size(); j++) {
-		    		   String key2 = linewords.get(j);
-		    		   if(!key2.equals(key1) && !linewords.get(j).isEmpty()) {
+		    		   String key2 = linewords.get(j); 
+		    		   if(!key2.equals(key1)) { //if theyre not the same, write them to the same
 		    			   context.write(new Text(key1 + "\t" + key2), ONE);
+		    			   count++;
 		    		   }
 		    	   }
-		    	   
+		    	   context.write(new Text(key1 + "\t"), new DoubleWritable(count));
 		       }
 		    }
 	   }
 	   
 	   
-	 
+	 public static class CombinePairs extends Reducer<Text, DoubleWritable, Text, DoubleWritable> {
+		   @Override
+		    public void reduce(Text key, Iterable<DoubleWritable> values, Context context)
+		            throws IOException, InterruptedException {
+				   double d = 0;
+				   for(DoubleWritable v : values){
+					   d+= v.get(); //just add the values up
+				   }
+				   context.write(key, new DoubleWritable(d));
+		   }
+	 }
 	   
 	   public static class ReducePairs extends Reducer<Text, DoubleWritable, Text, DoubleWritable> {
-		   private double[] maxvals = new double[100];
-		   //private int counter = 0;
-		   private String[] finaloutput = new String[100];
-		   private HashMap<String, Double> denoms = new HashMap<String, Double>();
-		   private HashMap<String, Double> nums = new HashMap<String, Double>();
-		   //private DecimalFormat df = new DecimalFormat("0.00000");
+		   private double[] maxvals = new double[100]; //the array that will store teh frequencies
+		   private String[] finaloutput = new String[100]; // the array that will store the strings that go with the frequencies above
+		   private double denom = 0;
+		 
 		   @Override
 	    public void reduce(Text key, Iterable<DoubleWritable> values, Context context)
 	            throws IOException, InterruptedException {
-			   double d = 0;
-			   for(DoubleWritable v : values){
-				   d+= v.get();
-			   }
-			   nums.put(key.toString(), d);
-			   String[] keys2 = key.toString().split("\\s+");
-			   if(!denoms.containsKey(keys2[0])) {
-				   denoms.put(keys2[0], d);
-			   }
-			   else {
-				   denoms.put(keys2[0], denoms.get(keys2[0]) + d); 
-			   }
 			   
-		   }
-		   @Override
-		   protected void cleanup(Context context) throws IOException,
-           InterruptedException{
-			   
-			   
-			   for(String k : nums.keySet()) {
-				   String dnum1 = k.split("\\s+")[0];
-				   double denom  = denoms.get(dnum1);
-				   double fr = nums.get(k)/denom;
-				   /*if(counter < maxvals.length) {
-					   int c = 0;
-					   while(c < counter +1 && fr > maxvals[c]) {
-						   c++;
-					   }
-					   double torepd = fr;
-					   String toreps = key + ", " + k;
-					   for(int i = c; i < counter+1; i++) {
+			   double num = 0;
+			   double d2 = 0;
+			   String[] keys = key.toString().split("\\s++");
+			   for(DoubleWritable v : values) {
+			   if(keys.length == 1) { // a denominator term
+				   d2 += v.get();
+			   	}
+			   else { // a numerator term
+				   num += v.get();
+			   }
+			   }
+			   if(keys.length == 1) { //set the denominator for this round
+				   denom = d2;
+			   }
+			   double fr = num/denom; // the value of the frequency
+			  
+				  if(denom > 50 && Double.compare(fr, maxvals[0]) > 0) { //minimum denominator of 50 and use Double.compare to avoid numerical issues
+					  int c = 1; //start at 1 because already know it is greater than first element
+					  while(c < maxvals.length && Double.compare(fr, maxvals[c]) > 0) { //increase index until reach end or less than current index
+						  c++;
+					  }
+					  c = c-1;
+					  double torepd = fr;
+					  String toreps = key.toString();
+					  for(int i = c; i > -1; i--) { //shift all elements of the array to the left
 						   double tempd = maxvals[i];
 						   String temps = finaloutput[i];
 						   maxvals[i] = torepd;
@@ -265,32 +222,24 @@ public class RelativeFrequencyPairs extends Configured implements Tool {
 						   torepd = tempd;
 						   toreps = String.valueOf(temps);
 					   }
-				   
-					   counter++;
-			   }   
-				   else{*/
-					  if(denom > 50 && Double.compare(fr, maxvals[0]) > 0) {
-						  int c = 1;
-						  while(c < maxvals.length && Double.compare(fr, maxvals[c]) > 0) {
-							  c++;
-						  }
-						  c = c-1;
-						  double torepd = fr;
-						  String toreps = dnum1 + ", " + k.split("\\s+")[1];
-						  for(int i = c; i > -1; i--) {
-							   double tempd = maxvals[i];
-							   String temps = finaloutput[i];
-							   maxvals[i] = torepd;
-							   finaloutput[i] = toreps;
-							   torepd = tempd;
-							   toreps = String.valueOf(temps);
-						   }
-					  }
-			   }
+				  }
 			   
-			   for(int i = finaloutput.length-1; i > -1; i--) {
-				   context.write(new Text(finaloutput[i]), new DoubleWritable(maxvals[i]));
+			
+			   
+		   }
+		   
+		   //cleanup will write the output to the file
+		   @Override
+		   protected void cleanup(Context context) throws IOException,
+           InterruptedException{
+			   
+			  
+			
+			   for(int i = finaloutput.length-1; i > -1; i--) { //start at the end since array is sorted ascending
+				   String[] outformat = finaloutput[i].split("\\s++");
+				   context.write(new Text(outformat[0] + ", " + outformat[1]), new DoubleWritable(maxvals[i])); 
 			   }
+			
 		   }
 		   
 		}

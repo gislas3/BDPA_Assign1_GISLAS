@@ -40,43 +40,10 @@ public class InvertedIndexReg extends Configured implements Tool{
 
  @Override
  public int run(String[] args) throws Exception {
-    //System.out.println(Arrays.toString(args));
-	   //Configuration conf = new Configuration();
-	 //  getConf().setBoolean(Job.MAP_OUTPUT_COMPRESS, true); 
-	   //getConf().setClass(Job.MAP_OUTPUT_COMPRESS_CODEC, GzipCodec.class,
-		//	  CompressionCodec.class); // for setting the compression for the configuration
 	 
     Job myjob = Job.getInstance(getConf());
     
-   /* FileSystem fs = FileSystem.get(getConf());  
-  
-    String sw = fs.getHomeDirectory().toString() + "/stopwords.csv";
-    LinkedList<String> stopwords = new LinkedList<String>();
-   try{
-    
-    BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(new Path(sw))));
-    try {
-   	  String line;
-   	  
-   	  line=br.readLine();
-   	
-   	  while (line != null){
-   		//System.out.println(line);
-   		 String[] linesplit = line.split("\\s+");
-   	     System.out.println(linesplit[0].substring(0, linesplit[0].length() -1));
-		 stopwords.add(linesplit[0].substring(0, linesplit[0].length() -1));
-		//System.out.println(linesplit[0]);
-		 
-		 line = br.readLine();
-   	  }
-   	} finally {
-   	  
-   	  br.close();
-   	}
-    }catch(IOException e) {
-    	System.out.println(e.toString());
-    }
-    */
+
     
     myjob.setJarByClass(InvertedIndexReg.class);
     myjob.setOutputKeyClass(Text.class);
@@ -101,6 +68,7 @@ public class InvertedIndexReg extends Configured implements Tool{
     return 0;
  }
  
+ //key will be a text, as will a value be
  public static class Map extends Mapper<LongWritable, Text, Text, Text> {
     //private final static IntWritable ONE = new IntWritable(1);
     private Text word = new Text();
@@ -125,11 +93,7 @@ public class InvertedIndexReg extends Configured implements Tool{
     	   	  line=br.readLine();
     	   	
     	   	  while (line != null){
-    	   		//System.out.println(line);
     	   		 String[] linesplit = line.split(",");
-    	   	     //System.out.println(linesplit[0].substring(0, linesplit[0].length() -1));
-    			 //swords.add(linesplit[0].substring(0, linesplit[0].length() -1));
-    	   		 //System.out.println(linesplit[0]);
     	   		 swords.add(linesplit[0]);
     			//System.out.println(linesplit[0]);
     			 
@@ -188,7 +152,7 @@ public class InvertedIndexReg extends Configured implements Tool{
           //System.out.println("Token after processing is: " + token);
           if(!token.isEmpty() && !swords.contains(token)) {
           	word.set(token);
-          	String fileName = ((FileSplit) context.getInputSplit()).getPath().getName();
+          	String fileName = ((FileSplit) context.getInputSplit()).getPath().getName(); //value will be filename
           	docname.set(fileName);
           	context.write(word, docname);
           }
@@ -218,19 +182,7 @@ public class InvertedIndexReg extends Configured implements Tool{
           //System.out.println("t is: " + t.toString() );
           //x++;
        }
-       //System.out.println();
-       //System.out.println();
-       /*
-     //  if(x > 1) {
-    	//   System.out.println("key is " + key.toString());
-    	  // System.out.print("values are: ");
-    	   //for(Text k: values) {
-    		//   System.out.print(k.toString() + ", ");
-    	//   }
-    	   
-    	  // System.out.println("filenames are: " +filenames.toString());
-       //}
-         */
+
         
        
        
